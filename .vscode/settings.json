@@ -1,0 +1,9 @@
+{
+  "yaml.schemas": {
+    "./schemas/githubAction.json": [
+      ".github/workflows/**/*.yaml",
+      "."
+    ],
+    "https://json.schemastore.org/eslintrc.json": "file:///home/aboo-umair/Desktop/project/tutorials/terra-gha/.github/workflows/deploy.yml"
+  }
+}
