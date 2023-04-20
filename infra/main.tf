@@ -39,7 +39,7 @@ data "template_file" "nginx_data_script" {
 }
 
 # General Security group declaration
-resource "aws_security_group" "lb-asg-sg" {
+resource "aws_security_group" "terraform-sg" {
   egress = [{
     cidr_blocks      = ["0.0.0.0/0"]
     description      = ""
@@ -80,7 +80,7 @@ resource "aws_security_group" "lb-asg-sg" {
 resource "aws_instance" "apache-server" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t2.micro"
-  key_name               = aws_key_pair.ec2-server.key_name
+  key_name               = "<key_pair_name>"
   vpc_security_group_ids = [aws_security_group.general-sg.id]
   user_data              = base64encode(data.template_file.apache_data_script.rendered)
 
@@ -92,8 +92,8 @@ resource "aws_instance" "apache-server" {
 # Load balancer, Target Group and ASG Declaration
 
 # Load Balancers and component declaration
-resource "aws_lb_target_group" "lb-asg-tg" {
-  name        = "lb-asg-tg"
+resource "aws_lb_target_group" "terraform-tg" {
+  name        = "terraform-tg"
   port        = 80
   protocol    = "HTTP"
   target_type = "instance"
@@ -112,8 +112,8 @@ resource "aws_lb_target_group" "lb-asg-tg" {
   }
 }
 
-resource "aws_lb" "lb-asg-lb" {
-  name               = "lb-asg-lb"
+resource "aws_lb" "terraform-lb" {
+  name               = "terraform-lb"
   ip_address_type    = "ipv4"
   internal           = false
   load_balancer_type = "application"
@@ -121,19 +121,19 @@ resource "aws_lb" "lb-asg-lb" {
   subnets            = data.aws_subnets.subnets.ids
 }
 
-resource "aws_lb_listener" "lb-asg-lbl" {
-  load_balancer_arn = aws_lb.lb-asg-lb.arn
+resource "aws_lb_listener" "terraform-lbl" {
+  load_balancer_arn = aws_lb.terraform-lb.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.lb-asg-tg.arn
+    target_group_arn = aws_lb_target_group.terraform-tg.arn
   }
 }
 
 resource "aws_lb_target_group_attachment" "apache-server" {
-  target_group_arn = aws_lb_target_group.lb-asg-tg.arn
+  target_group_arn = aws_lb_target_group.terraform-tg.arn
   target_id        = aws_instance.apache-server.id
   port             = 80
 }
@@ -143,7 +143,7 @@ resource "aws_launch_template" "nginx-lt" {
   name                   = "nginx-lt"
   image_id               = data.aws_ami.ubuntu.id
   instance_type          = "t2.micro"
-  key_name               = var.key_name
+  key_name               = "<key_pair_name>"
   vpc_security_group_ids = [aws_security_group.general-sg.id]
   user_data              = base64encode(data.template_file.nginx_data_script.rendered)
 
@@ -155,15 +155,15 @@ resource "aws_launch_template" "nginx-lt" {
   }
 }
 
-resource "aws_autoscaling_group" "lb-asg-asg" {
-  name                      = "lb-asg-asg"
-  vpc_zone_identifier       = aws_lb.lb-asg-lb.subnets
+resource "aws_autoscaling_group" "terraform-asg" {
+  name                      = "terraform-asg"
+  vpc_zone_identifier       = aws_lb.terraform-lb.subnets
   max_size                  = 10
   min_size                  = 2
-  desired_capacity          = aws_lb_target_group.lb-asg-tg.count
+  desired_capacity          = 2
   health_check_grace_period = 300
   health_check_type         = "ELB"
-  target_group_arns         = [aws_lb_target_group.lb-asg-tg.arn]
+  target_group_arns         = [aws_lb_target_group.terraform-tg.arn]
 
   launch_template {
     id      = aws_launch_template.nginx-lt.id
